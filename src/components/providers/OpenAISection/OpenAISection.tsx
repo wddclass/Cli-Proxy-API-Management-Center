@@ -2,7 +2,7 @@ import { Fragment, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { IconCheck, IconX } from '@/components/ui/icons';
+import { IconCheck, IconChevronDown, IconX } from '@/components/ui/icons';
 import iconOpenaiLight from '@/assets/icons/openai-light.svg';
 import iconOpenaiDark from '@/assets/icons/openai-dark.svg';
 import type { OpenAIProviderConfig } from '@/types';
@@ -16,6 +16,7 @@ import { collectUsageDetailsForCandidates, type UsageDetailsBySource } from '@/u
 import styles from '@/pages/AiProvidersPage.module.scss';
 import { ProviderList } from '../ProviderList';
 import { ProviderStatusBar } from '../ProviderStatusBar';
+import { useSectionCollapsed } from '../hooks/useSectionCollapsed';
 import { getOpenAIProviderStats, getStatsBySource } from '../utils';
 
 interface OpenAISectionProps {
@@ -45,6 +46,7 @@ export function OpenAISection({
 }: OpenAISectionProps) {
   const { t } = useTranslation();
   const actionsDisabled = disableControls || loading || isSwitching;
+  const { collapsed, toggleCollapsed } = useSectionCollapsed(configs.length > 0);
 
   const statusBarCache = useMemo(() => {
     const cache = new Map<string, ReturnType<typeof calculateStatusBarData>>();
@@ -79,122 +81,159 @@ export function OpenAISection({
           </span>
         }
         extra={
-          <Button size="sm" onClick={onAdd} disabled={actionsDisabled}>
-            {t('ai_providers.openai_add_button')}
-          </Button>
+          <div className={styles.headerActions}>
+            <Button
+              variant="secondary"
+              size="sm"
+              className={styles.collapseButton}
+              onClick={toggleCollapsed}
+              aria-expanded={!collapsed}
+            >
+              <span className={styles.collapseButtonContent}>
+                <span
+                  className={`${styles.collapseButtonIcon} ${
+                    collapsed ? '' : styles.collapseButtonIconExpanded
+                  }`}
+                >
+                  <IconChevronDown size={16} />
+                </span>
+                <span>{collapsed ? t('common.expand') : t('common.collapse')}</span>
+              </span>
+            </Button>
+            <Button
+              size="sm"
+              className={styles.headerPrimaryAction}
+              onClick={onAdd}
+              disabled={actionsDisabled}
+            >
+              {t('ai_providers.openai_add_button')}
+            </Button>
+          </div>
         }
       >
-        <ProviderList<OpenAIProviderConfig>
-          items={configs}
-          loading={loading}
-          keyField={(_, index) => `openai-provider-${index}`}
-          emptyTitle={t('ai_providers.openai_empty_title')}
-          emptyDescription={t('ai_providers.openai_empty_desc')}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          actionsDisabled={actionsDisabled}
-          renderContent={(item) => {
-            const stats = getOpenAIProviderStats(item.apiKeyEntries, keyStats, item.prefix);
-            const headerEntries = Object.entries(item.headers || {});
-            const apiKeyEntries = item.apiKeyEntries || [];
-            const statusData = statusBarCache.get(item.name) || calculateStatusBarData([]);
+        <div
+          className={`${styles.sectionCollapse} ${
+            collapsed ? '' : styles.sectionCollapseOpen
+          }`}
+        >
+          <div className={styles.sectionCollapseInner}>
+            <ProviderList<OpenAIProviderConfig>
+              items={configs}
+              loading={loading}
+              keyField={(_, index) => `openai-provider-${index}`}
+              emptyTitle={t('ai_providers.openai_empty_title')}
+              emptyDescription={t('ai_providers.openai_empty_desc')}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              actionsDisabled={actionsDisabled}
+              renderContent={(item) => {
+                const stats = getOpenAIProviderStats(item.apiKeyEntries, keyStats, item.prefix);
+                const headerEntries = Object.entries(item.headers || {});
+                const apiKeyEntries = item.apiKeyEntries || [];
+                const statusData = statusBarCache.get(item.name) || calculateStatusBarData([]);
 
-            return (
-              <Fragment>
-                <div className="item-title">{item.name}</div>
-                {item.priority !== undefined && (
-                  <div className={styles.fieldRow}>
-                    <span className={styles.fieldLabel}>{t('common.priority')}:</span>
-                    <span className={styles.fieldValue}>{item.priority}</span>
-                  </div>
-                )}
-                {item.prefix && (
-                  <div className={styles.fieldRow}>
-                    <span className={styles.fieldLabel}>{t('common.prefix')}:</span>
-                    <span className={styles.fieldValue}>{item.prefix}</span>
-                  </div>
-                )}
-                <div className={styles.fieldRow}>
-                  <span className={styles.fieldLabel}>{t('common.base_url')}:</span>
-                  <span className={styles.fieldValue}>{item.baseUrl}</span>
-                </div>
-                {headerEntries.length > 0 && (
-                  <div className={styles.headerBadgeList}>
-                    {headerEntries.map(([key, value]) => (
-                      <span key={key} className={styles.headerBadge}>
-                        <strong>{key}:</strong> {value}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {apiKeyEntries.length > 0 && (
-                  <div className={styles.apiKeyEntriesSection}>
-                    <div className={styles.apiKeyEntriesLabel}>
-                      {t('ai_providers.openai_keys_count')}: {apiKeyEntries.length}
+                return (
+                  <Fragment>
+                    <div className="item-title">{item.name}</div>
+                    {item.priority !== undefined && (
+                      <div className={styles.fieldRow}>
+                        <span className={styles.fieldLabel}>{t('common.priority')}:</span>
+                        <span className={styles.fieldValue}>{item.priority}</span>
+                      </div>
+                    )}
+                    {item.prefix && (
+                      <div className={styles.fieldRow}>
+                        <span className={styles.fieldLabel}>{t('common.prefix')}:</span>
+                        <span className={styles.fieldValue}>{item.prefix}</span>
+                      </div>
+                    )}
+                    <div className={styles.fieldRow}>
+                      <span className={styles.fieldLabel}>{t('common.base_url')}:</span>
+                      <span className={styles.fieldValue}>{item.baseUrl}</span>
                     </div>
-                    <div className={styles.apiKeyEntryList}>
-                      {apiKeyEntries.map((entry, entryIndex) => {
-                        const entryStats = getStatsBySource(entry.apiKey, keyStats);
-                        return (
-                          <div key={entryIndex} className={styles.apiKeyEntryCard}>
-                            <span className={styles.apiKeyEntryIndex}>{entryIndex + 1}</span>
-                            <span className={styles.apiKeyEntryKey}>{maskApiKey(entry.apiKey)}</span>
-                            {entry.proxyUrl && (
-                              <span className={styles.apiKeyEntryProxy}>{entry.proxyUrl}</span>
+                    {headerEntries.length > 0 && (
+                      <div className={styles.headerBadgeList}>
+                        {headerEntries.map(([key, value]) => (
+                          <span key={key} className={styles.headerBadge}>
+                            <strong>{key}:</strong> {value}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {apiKeyEntries.length > 0 && (
+                      <div className={styles.apiKeyEntriesSection}>
+                        <div className={styles.apiKeyEntriesLabel}>
+                          {t('ai_providers.openai_keys_count')}: {apiKeyEntries.length}
+                        </div>
+                        <div className={styles.apiKeyEntryList}>
+                          {apiKeyEntries.map((entry, entryIndex) => {
+                            const entryStats = getStatsBySource(entry.apiKey, keyStats);
+                            return (
+                              <div key={entryIndex} className={styles.apiKeyEntryCard}>
+                                <span className={styles.apiKeyEntryIndex}>{entryIndex + 1}</span>
+                                <span className={styles.apiKeyEntryKey}>
+                                  {maskApiKey(entry.apiKey)}
+                                </span>
+                                {entry.proxyUrl && (
+                                  <span className={styles.apiKeyEntryProxy}>{entry.proxyUrl}</span>
+                                )}
+                                <div className={styles.apiKeyEntryStats}>
+                                  <span
+                                    className={`${styles.apiKeyEntryStat} ${styles.apiKeyEntryStatSuccess}`}
+                                  >
+                                    <IconCheck size={12} /> {entryStats.success}
+                                  </span>
+                                  <span
+                                    className={`${styles.apiKeyEntryStat} ${styles.apiKeyEntryStatFailure}`}
+                                  >
+                                    <IconX size={12} /> {entryStats.failure}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    <div className={styles.fieldRow} style={{ marginTop: '8px' }}>
+                      <span className={styles.fieldLabel}>
+                        {t('ai_providers.openai_models_count')}:
+                      </span>
+                      <span className={styles.fieldValue}>{item.models?.length || 0}</span>
+                    </div>
+                    {item.models?.length ? (
+                      <div className={styles.modelTagList}>
+                        {item.models.map((model) => (
+                          <span key={model.name} className={styles.modelTag}>
+                            <span className={styles.modelName}>{model.name}</span>
+                            {model.alias && model.alias !== model.name && (
+                              <span className={styles.modelAlias}>{model.alias}</span>
                             )}
-                            <div className={styles.apiKeyEntryStats}>
-                              <span
-                                className={`${styles.apiKeyEntryStat} ${styles.apiKeyEntryStatSuccess}`}
-                              >
-                                <IconCheck size={12} /> {entryStats.success}
-                              </span>
-                              <span
-                                className={`${styles.apiKeyEntryStat} ${styles.apiKeyEntryStatFailure}`}
-                              >
-                                <IconX size={12} /> {entryStats.failure}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                <div className={styles.fieldRow} style={{ marginTop: '8px' }}>
-                  <span className={styles.fieldLabel}>{t('ai_providers.openai_models_count')}:</span>
-                  <span className={styles.fieldValue}>{item.models?.length || 0}</span>
-                </div>
-                {item.models?.length ? (
-                  <div className={styles.modelTagList}>
-                    {item.models.map((model) => (
-                      <span key={model.name} className={styles.modelTag}>
-                        <span className={styles.modelName}>{model.name}</span>
-                        {model.alias && model.alias !== model.name && (
-                          <span className={styles.modelAlias}>{model.alias}</span>
-                        )}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                    {item.testModel && (
+                      <div className={styles.fieldRow}>
+                        <span className={styles.fieldLabel}>Test Model:</span>
+                        <span className={styles.fieldValue}>{item.testModel}</span>
+                      </div>
+                    )}
+                    <div className={styles.cardStats}>
+                      <span className={`${styles.statPill} ${styles.statSuccess}`}>
+                        {t('stats.success')}: {stats.success}
                       </span>
-                    ))}
-                  </div>
-                ) : null}
-                {item.testModel && (
-                  <div className={styles.fieldRow}>
-                    <span className={styles.fieldLabel}>Test Model:</span>
-                    <span className={styles.fieldValue}>{item.testModel}</span>
-                  </div>
-                )}
-                <div className={styles.cardStats}>
-                  <span className={`${styles.statPill} ${styles.statSuccess}`}>
-                    {t('stats.success')}: {stats.success}
-                  </span>
-                  <span className={`${styles.statPill} ${styles.statFailure}`}>
-                    {t('stats.failure')}: {stats.failure}
-                  </span>
-                </div>
-                <ProviderStatusBar statusData={statusData} />
-              </Fragment>
-            );
-          }}
-        />
+                      <span className={`${styles.statPill} ${styles.statFailure}`}>
+                        {t('stats.failure')}: {stats.failure}
+                      </span>
+                    </div>
+                    <ProviderStatusBar statusData={statusData} />
+                  </Fragment>
+                );
+              }}
+            />
+          </div>
+        </div>
       </Card>
     </>
   );

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
+import { IconChevronDown } from '@/components/ui/icons';
 import iconVertex from '@/assets/icons/vertex.svg';
 import type { ProviderKeyConfig } from '@/types';
 import { maskApiKey } from '@/utils/format';
@@ -18,6 +19,7 @@ import {
 import styles from '@/pages/AiProvidersPage.module.scss';
 import { ProviderList } from '../ProviderList';
 import { ProviderStatusBar } from '../ProviderStatusBar';
+import { useSectionCollapsed } from '../hooks/useSectionCollapsed';
 import { getStatsBySource, hasDisableAllModelsRule } from '../utils';
 
 interface VertexSectionProps {
@@ -48,6 +50,7 @@ export function VertexSection({
   const { t } = useTranslation();
   const actionsDisabled = disableControls || loading || isSwitching;
   const toggleDisabled = disableControls || loading || isSwitching;
+  const { collapsed, toggleCollapsed } = useSectionCollapsed(configs.length > 0);
 
   const statusBarCache = useMemo(() => {
     const cache = new Map<string, ReturnType<typeof calculateStatusBarData>>();
@@ -78,12 +81,43 @@ export function VertexSection({
           </span>
         }
         extra={
-          <Button size="sm" onClick={onAdd} disabled={actionsDisabled}>
-            {t('ai_providers.vertex_add_button')}
-          </Button>
+          <div className={styles.headerActions}>
+            <Button
+              variant="secondary"
+              size="sm"
+              className={styles.collapseButton}
+              onClick={toggleCollapsed}
+              aria-expanded={!collapsed}
+            >
+              <span className={styles.collapseButtonContent}>
+                <span
+                  className={`${styles.collapseButtonIcon} ${
+                    collapsed ? '' : styles.collapseButtonIconExpanded
+                  }`}
+                >
+                  <IconChevronDown size={16} />
+                </span>
+                <span>{collapsed ? t('common.expand') : t('common.collapse')}</span>
+              </span>
+            </Button>
+            <Button
+              size="sm"
+              className={styles.headerPrimaryAction}
+              onClick={onAdd}
+              disabled={actionsDisabled}
+            >
+              {t('ai_providers.vertex_add_button')}
+            </Button>
+          </div>
         }
       >
-        <ProviderList<ProviderKeyConfig>
+        <div
+          className={`${styles.sectionCollapse} ${
+            collapsed ? '' : styles.sectionCollapseOpen
+          }`}
+        >
+          <div className={styles.sectionCollapseInner}>
+            <ProviderList<ProviderKeyConfig>
           items={configs}
           loading={loading}
           keyField={(item) => item.apiKey}
@@ -190,7 +224,9 @@ export function VertexSection({
               </Fragment>
             );
           }}
-        />
+          />
+          </div>
+        </div>
       </Card>
     </>
   );

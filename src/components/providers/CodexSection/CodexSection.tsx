@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -9,19 +9,13 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import iconCodex from '@/assets/icons/codex.svg';
 import type { ProviderKeyConfig } from '@/types';
 import { maskApiKey } from '@/utils/format';
-import {
-  buildCandidateUsageSourceIds,
-  calculateStatusBarData,
-  type KeyStats,
-} from '@/utils/usage';
-import {
-  collectUsageDetailsForCandidates,
-  type UsageDetailsBySource,
-} from '@/utils/usageIndex';
+import { buildCandidateUsageSourceIds, calculateStatusBarData, type KeyStats } from '@/utils/usage';
+import { collectUsageDetailsForCandidates, type UsageDetailsBySource } from '@/utils/usageIndex';
 import styles from '@/pages/AiProvidersPage.module.scss';
 import { ProviderStatusBar } from '../ProviderStatusBar';
 import { useSectionCollapsed } from '../hooks/useSectionCollapsed';
 import { getStatsBySource, hasDisableAllModelsRule } from '../utils';
+import { CodexTestModal } from './CodexTestModal';
 
 interface CodexSectionProps {
   configs: ProviderKeyConfig[];
@@ -64,6 +58,7 @@ export function CodexSection({
   onToggle,
 }: CodexSectionProps) {
   const { t } = useTranslation();
+  const [testingConfig, setTestingConfig] = useState<ProviderKeyConfig | null>(null);
   const [storedSortMode, setStoredSortMode] = useLocalStorage<string>(
     CODEX_SORT_STORAGE_KEY,
     'added'
@@ -141,7 +136,11 @@ export function CodexSection({
     { value: 'priority', label: t('ai_providers.codex_sort_priority') },
   ];
 
-  const renderCompactStat = (label: string, value: string | number, tone?: 'success' | 'danger') => (
+  const renderCompactStat = (
+    label: string,
+    value: string | number,
+    tone?: 'success' | 'danger'
+  ) => (
     <span
       className={`${styles.compactStat} ${
         tone === 'success'
@@ -214,175 +213,188 @@ export function CodexSection({
           </div>
         }
       >
-        <div
-          className={`${styles.sectionCollapse} ${
-            collapsed ? '' : styles.sectionCollapseOpen
-          }`}
-        >
+        <div className={`${styles.sectionCollapse} ${collapsed ? '' : styles.sectionCollapseOpen}`}>
           <div className={styles.sectionCollapseInner}>
             {loading && sortedItems.length === 0 ? (
-            <div className="hint">{t('common.loading')}</div>
-          ) : sortedItems.length === 0 ? (
-            <EmptyState
-              title={t('ai_providers.codex_empty_title')}
-              description={t('ai_providers.codex_empty_desc')}
-            />
-          ) : (
-            <div className={styles.codexTableWrap}>
-              <table className={styles.codexTable}>
-                <thead>
-                  <tr>
-                    <th>{t('common.api_key')}</th>
-                    <th>{t('common.base_url')}</th>
-                    <th>{t('common.prefix')}</th>
-                    <th>{t('common.priority')}</th>
-                    <th>{t('ai_providers.codex_models_count')}</th>
-                    <th>{t('usage_stats.success_rate')}</th>
-                    <th>{t('common.status')}</th>
-                    <th>{t('common.action')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedItems.map((item) => {
-                    const config = item.config;
-                    const headerEntries = Object.entries(config.headers || {});
-                    const configDisabled = hasDisableAllModelsRule(config.excludedModels);
-                    const excludedModels = config.excludedModels ?? [];
-                    const statusData =
-                      statusBarCache.get(config.apiKey) || calculateStatusBarData([]);
-                    const requestTotal = item.success + item.failure;
-                    const successRateText =
-                      requestTotal > 0 ? `${(item.successRate * 100).toFixed(1)}%` : '--';
+              <div className="hint">{t('common.loading')}</div>
+            ) : sortedItems.length === 0 ? (
+              <EmptyState
+                title={t('ai_providers.codex_empty_title')}
+                description={t('ai_providers.codex_empty_desc')}
+              />
+            ) : (
+              <div className={styles.codexTableWrap}>
+                <table className={styles.codexTable}>
+                  <thead>
+                    <tr>
+                      <th>{t('common.api_key')}</th>
+                      <th>{t('common.base_url')}</th>
+                      <th>{t('common.prefix')}</th>
+                      <th>{t('common.priority')}</th>
+                      <th>{t('ai_providers.codex_models_count')}</th>
+                      <th>{t('usage_stats.success_rate')}</th>
+                      <th>{t('common.status')}</th>
+                      <th>{t('common.action')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedItems.map((item) => {
+                      const config = item.config;
+                      const headerEntries = Object.entries(config.headers || {});
+                      const configDisabled = hasDisableAllModelsRule(config.excludedModels);
+                      const excludedModels = config.excludedModels ?? [];
+                      const statusData =
+                        statusBarCache.get(config.apiKey) || calculateStatusBarData([]);
+                      const requestTotal = item.success + item.failure;
+                      const successRateText =
+                        requestTotal > 0 ? `${(item.successRate * 100).toFixed(1)}%` : '--';
 
-                    return (
-                      <tr
-                        key={`${config.apiKey}:${item.originalIndex}`}
-                        className={configDisabled ? styles.codexTableRowDisabled : ''}
-                      >
-                        <td>
-                          <div className={styles.tablePrimaryCell}>
-                            <div className={styles.tablePrimaryValue} title={config.apiKey}>
-                              {maskApiKey(config.apiKey)}
-                            </div>
-                            <div className={styles.tableMetaLine}>
-                              {renderCompactStat(t('stats.success'), item.success, 'success')}
-                              {renderCompactStat(t('stats.failure'), item.failure, 'danger')}
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <div className={styles.tableUrlCell}>
-                            <span
-                              className={styles.tableMonoText}
-                              title={config.baseUrl || t('common.not_set')}
-                            >
-                              {config.baseUrl || t('common.not_set')}
-                            </span>
-                            {(config.proxyUrl || config.websockets !== undefined) && (
-                              <div className={styles.tableMetaLine}>
-                                {config.proxyUrl ? (
-                                  <span className={styles.tableBadge} title={config.proxyUrl}>
-                                    Proxy
-                                  </span>
-                                ) : null}
-                                {config.websockets ? (
-                                  <span
-                                    className={`${styles.tableBadge} ${styles.tableBadgeActive}`}
-                                  >
-                                    WS
-                                  </span>
-                                ) : null}
+                      return (
+                        <tr
+                          key={`${config.apiKey}:${item.originalIndex}`}
+                          className={configDisabled ? styles.codexTableRowDisabled : ''}
+                        >
+                          <td>
+                            <div className={styles.tablePrimaryCell}>
+                              <div className={styles.tablePrimaryValue} title={config.apiKey}>
+                                {maskApiKey(config.apiKey)}
                               </div>
-                            )}
-                          </div>
-                        </td>
-                        <td>
-                          <span className={styles.tableMonoText}>
-                            {config.prefix || t('common.not_set')}
-                          </span>
-                        </td>
-                        <td>
-                          <span className={styles.tableNumericCell}>{config.priority ?? '-'}</span>
-                        </td>
-                        <td>
-                          <div className={styles.tableMetaLine}>
-                            {renderCompactStat(
-                              t('ai_providers.codex_models_count'),
-                              config.models?.length ?? 0
-                            )}
-                            {excludedModels.length > 0
-                              ? renderCompactStat(t('common.warning'), excludedModels.length)
-                              : null}
-                            {headerEntries.length > 0
-                              ? renderCompactStat(
-                                  t('common.custom_headers_label'),
-                                  headerEntries.length
-                                )
-                              : null}
-                          </div>
-                        </td>
-                        <td>
-                          <div className={styles.tableRateCell}>
-                            <span className={styles.tableRateValue}>{successRateText}</span>
-                            <span className={styles.tableRateHint}>
-                              {requestTotal > 0 ? `${requestTotal}` : t('status_bar.no_requests')}
+                              <div className={styles.tableMetaLine}>
+                                {renderCompactStat(t('stats.success'), item.success, 'success')}
+                                {renderCompactStat(t('stats.failure'), item.failure, 'danger')}
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <div className={styles.tableUrlCell}>
+                              <span
+                                className={styles.tableMonoText}
+                                title={config.baseUrl || t('common.not_set')}
+                              >
+                                {config.baseUrl || t('common.not_set')}
+                              </span>
+                              {(config.proxyUrl || config.websockets !== undefined) && (
+                                <div className={styles.tableMetaLine}>
+                                  {config.proxyUrl ? (
+                                    <span className={styles.tableBadge} title={config.proxyUrl}>
+                                      Proxy
+                                    </span>
+                                  ) : null}
+                                  {config.websockets ? (
+                                    <span
+                                      className={`${styles.tableBadge} ${styles.tableBadgeActive}`}
+                                    >
+                                      WS
+                                    </span>
+                                  ) : null}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td>
+                            <span className={styles.tableMonoText}>
+                              {config.prefix || t('common.not_set')}
                             </span>
-                          </div>
-                        </td>
-                        <td>
-                          <div className={styles.tableStatusCell}>
-                            {configDisabled ? (
-                              <span className={`${styles.tableBadge} ${styles.tableBadgeWarning}`}>
-                                {t('ai_providers.config_disabled_badge')}
-                              </span>
-                            ) : (
-                              <span className={`${styles.tableBadge} ${styles.tableBadgeActive}`}>
-                                {t('ai_providers.config_toggle_label')}
-                              </span>
-                            )}
-                            <ProviderStatusBar statusData={statusData} />
-                          </div>
-                        </td>
-                        <td>
-                          <div className={styles.tableActions}>
-                            <div className={styles.tableToggleWrap}>
-                              <ToggleSwitch
-                                ariaLabel={t('ai_providers.config_toggle_label')}
-                                checked={!configDisabled}
-                                disabled={toggleDisabled}
-                                onChange={(value) => void onToggle(item.originalIndex, value)}
-                              />
+                          </td>
+                          <td>
+                            <span className={styles.tableNumericCell}>
+                              {config.priority ?? '-'}
+                            </span>
+                          </td>
+                          <td>
+                            <div className={styles.tableMetaLine}>
+                              {renderCompactStat(
+                                t('ai_providers.codex_models_count'),
+                                config.models?.length ?? 0
+                              )}
+                              {excludedModels.length > 0
+                                ? renderCompactStat(t('common.warning'), excludedModels.length)
+                                : null}
+                              {headerEntries.length > 0
+                                ? renderCompactStat(
+                                    t('common.custom_headers_label'),
+                                    headerEntries.length
+                                  )
+                                : null}
                             </div>
-                            <div className={styles.tableActionButtons}>
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => onEdit(item.originalIndex)}
-                                disabled={actionsDisabled}
-                              >
-                                {t('common.edit')}
-                              </Button>
-                              <Button
-                                variant="danger"
-                                size="sm"
-                                onClick={() => onDelete(item.originalIndex)}
-                                disabled={actionsDisabled}
-                              >
-                                {t('common.delete')}
-                              </Button>
+                          </td>
+                          <td>
+                            <div className={styles.tableRateCell}>
+                              <span className={styles.tableRateValue}>{successRateText}</span>
+                              <span className={styles.tableRateHint}>
+                                {requestTotal > 0 ? `${requestTotal}` : t('status_bar.no_requests')}
+                              </span>
                             </div>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+                          </td>
+                          <td>
+                            <div className={styles.tableStatusCell}>
+                              {configDisabled ? (
+                                <span
+                                  className={`${styles.tableBadge} ${styles.tableBadgeWarning}`}
+                                >
+                                  {t('ai_providers.config_disabled_badge')}
+                                </span>
+                              ) : (
+                                <span className={`${styles.tableBadge} ${styles.tableBadgeActive}`}>
+                                  {t('ai_providers.config_toggle_label')}
+                                </span>
+                              )}
+                              <ProviderStatusBar statusData={statusData} />
+                            </div>
+                          </td>
+                          <td>
+                            <div className={styles.tableActions}>
+                              <div className={styles.tableToggleWrap}>
+                                <ToggleSwitch
+                                  ariaLabel={t('ai_providers.config_toggle_label')}
+                                  checked={!configDisabled}
+                                  disabled={toggleDisabled}
+                                  onChange={(value) => void onToggle(item.originalIndex, value)}
+                                />
+                              </div>
+                              <div className={styles.tableActionButtons}>
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => setTestingConfig(config)}
+                                  disabled={actionsDisabled}
+                                >
+                                  {t('ai_providers.codex_test_action')}
+                                </Button>
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => onEdit(item.originalIndex)}
+                                  disabled={actionsDisabled}
+                                >
+                                  {t('common.edit')}
+                                </Button>
+                                <Button
+                                  variant="danger"
+                                  size="sm"
+                                  onClick={() => onDelete(item.originalIndex)}
+                                  disabled={actionsDisabled}
+                                >
+                                  {t('common.delete')}
+                                </Button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       </Card>
+      <CodexTestModal
+        open={Boolean(testingConfig)}
+        config={testingConfig}
+        onClose={() => setTestingConfig(null)}
+      />
     </>
   );
 }

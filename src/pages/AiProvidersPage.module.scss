@@ -134,12 +134,11 @@
   overflow-x: auto;
   border: 1px solid var(--border-color);
   border-radius: $radius-md;
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--bg-primary) 92%, transparent),
-      color-mix(in srgb, var(--bg-secondary) 96%, transparent)
-    );
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-primary) 92%, transparent),
+    color-mix(in srgb, var(--bg-secondary) 96%, transparent)
+  );
 }
 
 .codexTable {
@@ -718,6 +717,329 @@
   &:hover {
     background-color: var(--success-badge-bg, #d1fae5);
     border-color: var(--success-badge-border, #6ee7b7);
+  }
+}
+
+.codexTestModalBody {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.codexTestAccountCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-md;
+  padding: 14px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: $radius-lg;
+  background: linear-gradient(135deg, rgba(15, 186, 177, 0.06), rgba(15, 23, 42, 0.02));
+
+  @include mobile {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.codexTestAccountInfo {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  min-width: 0;
+}
+
+.codexTestAccountLogo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #14b8a6, #0f766e);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.codexTestAccountMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.codexTestAccountName {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.codexTestAccountSubline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.codexTestAccountTag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border-radius: $radius-sm;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.codexTestAccountValue {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.codexTestAccountUrl {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.codexTestAccountAside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+
+  @include mobile {
+    width: 100%;
+    align-items: flex-start;
+  }
+}
+
+.codexTestBadgeRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  @include mobile {
+    justify-content: flex-start;
+  }
+}
+
+.codexTestAccountStatus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.14);
+  color: #15803d;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.codexTestAccountStatusDisabled {
+  background: rgba(245, 158, 11, 0.16);
+  color: #b45309;
+}
+
+.codexTestInfoBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
+  background: color-mix(in srgb, var(--bg-secondary) 96%, transparent);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.codexTestSubHint {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+  text-align: right;
+
+  @include mobile {
+    text-align: left;
+  }
+}
+
+.codexTestControlBlock {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: $spacing-md;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: $radius-md;
+  background: var(--bg-secondary);
+
+  @include mobile {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.codexTestAutocomplete {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.codexTestAutocompleteInput {
+  min-height: 40px;
+}
+
+.codexTestRefreshButton {
+  white-space: nowrap;
+  flex: 0 0 auto;
+  min-width: 108px;
+}
+
+.codexTestControlActions {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  flex: 1;
+  min-width: 0;
+
+  @include mobile {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+.codexTestConsole {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 240px;
+  max-height: 360px;
+  padding: $spacing-md;
+  border-radius: $radius-lg;
+  border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-primary) 20%, #000 80%),
+    color-mix(in srgb, var(--bg-secondary) 14%, #000 86%)
+  );
+  color: color-mix(in srgb, var(--text-primary) 18%, #fff 82%);
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow: auto;
+}
+
+.codexTestConsoleToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-sm;
+  padding-bottom: 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 48%, transparent);
+
+  @include mobile {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.codexTestConsoleToolbarLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--primary-color) 38%, #fff 62%);
+  letter-spacing: 0.02em;
+}
+
+.codexTestConsoleViewActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.codexTestViewButton {
+  white-space: nowrap;
+}
+
+.codexTestConsoleLineMuted {
+  color: color-mix(in srgb, var(--text-secondary) 24%, #fff 76%);
+  word-break: break-word;
+}
+
+.codexTestConsoleLineInfo {
+  color: color-mix(in srgb, var(--quota-medium-color) 72%, #fff 28%);
+  word-break: break-word;
+}
+
+.codexTestConsoleLineSuccess {
+  color: color-mix(in srgb, var(--success-color) 70%, #fff 30%);
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.codexTestConsoleLineError {
+  color: color-mix(in srgb, var(--warning-color) 58%, #fff 42%);
+  word-break: break-word;
+}
+
+.codexTestOutput {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: color-mix(in srgb, var(--text-primary) 12%, #fff 88%);
+  font: inherit;
+}
+
+.codexTestResultBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--primary-color) 26%, transparent);
+  border-radius: 12px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--primary-color) 10%, transparent),
+    color-mix(in srgb, var(--bg-primary) 8%, transparent)
+  );
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent);
+}
+
+.codexTestResultTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--primary-color) 34%, #fff 66%);
+  letter-spacing: 0.02em;
+}
+
+.codexTestFooterMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-sm;
+  font-size: 12px;
+  color: var(--text-tertiary);
+
+  @include mobile {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 

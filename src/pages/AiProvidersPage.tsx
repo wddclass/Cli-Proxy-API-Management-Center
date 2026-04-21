@@ -20,7 +20,7 @@ import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { ampcodeApi, providersApi } from '@/services/api';
 import { useAuthStore, useConfigStore, useNotificationStore, useThemeStore } from '@/stores';
 import type { GeminiKeyConfig, OpenAIProviderConfig, ProviderKeyConfig } from '@/types';
-import { indexUsageDetailsBySource } from '@/utils/usageIndex';
+import { indexUsageDetailsByAuthIndex, indexUsageDetailsBySource } from '@/utils/usageIndex';
 import styles from './AiProvidersPage.module.scss';
 
 export function AiProvidersPage() {
@@ -69,6 +69,10 @@ export function AiProvidersPage() {
   });
   const usageDetailsBySource = useMemo(
     () => indexUsageDetailsBySource(usageDetails),
+    [usageDetails]
+  );
+  const usageDetailsByAuthIndex = useMemo(
+    () => indexUsageDetailsByAuthIndex(usageDetails),
     [usageDetails]
   );
 
@@ -164,7 +168,7 @@ export function AiProvidersPage() {
       confirmText: t('common.confirm'),
       onConfirm: async () => {
         try {
-          await providersApi.deleteGeminiKey(entry.apiKey);
+          await providersApi.deleteGeminiKey(entry.apiKey, entry.baseUrl);
           const next = geminiKeys.filter((_, idx) => idx !== index);
           setGeminiKeys(next);
           updateConfigValue('gemini-api-key', next);
@@ -297,14 +301,14 @@ export function AiProvidersPage() {
       onConfirm: async () => {
         try {
           if (type === 'codex') {
-            await providersApi.deleteCodexConfig(entry.apiKey);
+            await providersApi.deleteCodexConfig(entry.apiKey, entry.baseUrl);
             const next = codexConfigs.filter((_, idx) => idx !== index);
             setCodexConfigs(next);
             updateConfigValue('codex-api-key', next);
             clearCache('codex-api-key');
             showNotification(t('notification.codex_config_deleted'), 'success');
           } else {
-            await providersApi.deleteClaudeConfig(entry.apiKey);
+            await providersApi.deleteClaudeConfig(entry.apiKey, entry.baseUrl);
             const next = claudeConfigs.filter((_, idx) => idx !== index);
             setClaudeConfigs(next);
             updateConfigValue('claude-api-key', next);
@@ -329,7 +333,7 @@ export function AiProvidersPage() {
       confirmText: t('common.confirm'),
       onConfirm: async () => {
         try {
-          await providersApi.deleteVertexConfig(entry.apiKey);
+          await providersApi.deleteVertexConfig(entry.apiKey, entry.baseUrl);
           const next = vertexConfigs.filter((_, idx) => idx !== index);
           setVertexConfigs(next);
           updateConfigValue('vertex-api-key', next);
@@ -378,6 +382,7 @@ export function AiProvidersPage() {
             configs={geminiKeys}
             keyStats={keyStats}
             usageDetailsBySource={usageDetailsBySource}
+            usageDetailsByAuthIndex={usageDetailsByAuthIndex}
             loading={loading}
             disableControls={disableControls}
             isSwitching={isSwitching}
@@ -393,6 +398,7 @@ export function AiProvidersPage() {
             configs={codexConfigs}
             keyStats={keyStats}
             usageDetailsBySource={usageDetailsBySource}
+            usageDetailsByAuthIndex={usageDetailsByAuthIndex}
             loading={loading}
             disableControls={disableControls}
             isSwitching={isSwitching}
@@ -408,6 +414,7 @@ export function AiProvidersPage() {
             configs={claudeConfigs}
             keyStats={keyStats}
             usageDetailsBySource={usageDetailsBySource}
+            usageDetailsByAuthIndex={usageDetailsByAuthIndex}
             loading={loading}
             disableControls={disableControls}
             isSwitching={isSwitching}
@@ -423,6 +430,7 @@ export function AiProvidersPage() {
             configs={vertexConfigs}
             keyStats={keyStats}
             usageDetailsBySource={usageDetailsBySource}
+            usageDetailsByAuthIndex={usageDetailsByAuthIndex}
             loading={loading}
             disableControls={disableControls}
             isSwitching={isSwitching}
@@ -448,6 +456,7 @@ export function AiProvidersPage() {
             configs={openaiProviders}
             keyStats={keyStats}
             usageDetailsBySource={usageDetailsBySource}
+            usageDetailsByAuthIndex={usageDetailsByAuthIndex}
             loading={loading}
             disableControls={disableControls}
             isSwitching={isSwitching}

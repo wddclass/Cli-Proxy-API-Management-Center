@@ -6,6 +6,7 @@ import { Modal } from '@/components/ui/Modal';
 import { apiCallApi, getApiCallErrorMessage, modelsApi } from '@/services/api';
 import { useNotificationStore } from '@/stores';
 import type { ProviderKeyConfig } from '@/types';
+import { CODEX_DEFAULT_USER_AGENT } from '@/utils/quota/constants';
 import { hasHeader } from '@/utils/headers';
 import { normalizeApiBase } from '@/utils/connection';
 import { maskApiKey } from '@/utils/format';
@@ -381,6 +382,9 @@ export function CodexTestModal({ open, config, onClose }: CodexTestModalProps) {
       'Content-Type': 'application/json',
       ...configHeaders,
     };
+    if (!hasHeader(headers, 'user-agent')) {
+      headers['User-Agent'] = CODEX_DEFAULT_USER_AGENT;
+    }
     if (config.apiKey?.trim() && !hasHeader(headers, 'authorization')) {
       headers.Authorization = `Bearer ${config.apiKey.trim()}`;
     }

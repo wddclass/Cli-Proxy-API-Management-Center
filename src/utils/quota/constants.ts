@@ -190,7 +190,7 @@ export const CLAUDE_USAGE_WINDOW_KEYS = [
 // Codex API configuration
 export const CODEX_USAGE_URL = 'https://chatgpt.com/backend-api/wham/usage';
 export const CODEX_DEFAULT_USER_AGENT =
-  'codex-tui/0.121.0 (Mac OS 26.1.0; arm64) xterm-256color (codex-tui; 0.121.0)';
+  'codex_cli_rs/0.80.0 (Debian 13.0.0; x86_64) WindowsTerminal';
 
 export const CODEX_REQUEST_HEADERS = {
   Authorization: 'Bearer $TOKEN$',

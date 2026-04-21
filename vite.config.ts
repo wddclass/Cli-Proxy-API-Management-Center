@@ -12,17 +12,7 @@ function getVersion(): string {
     return process.env.VERSION;
   }
 
-  // 2. Try git tag
-  try {
-    const gitTag = execSync('git describe --tags --exact-match 2>/dev/null || git describe --tags 2>/dev/null || echo ""', { encoding: 'utf8' }).trim();
-    if (gitTag) {
-      return gitTag;
-    }
-  } catch {
-    // Git not available or no tags
-  }
-
-  // 3. Fall back to package.json version
+  // 2. Prefer explicit package.json version for fork/custom builds
   try {
     const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf8'));
     if (pkg.version && pkg.version !== '0.0.0') {
@@ -30,6 +20,19 @@ function getVersion(): string {
     }
   } catch {
     // package.json not readable
+  }
+
+  // 3. Fall back to git tag/describe
+  try {
+    const gitTag = execSync(
+      'git describe --tags --exact-match 2>/dev/null || git describe --tags 2>/dev/null || echo ""',
+      { encoding: 'utf8' }
+    ).trim();
+    if (gitTag) {
+      return gitTag;
+    }
+  } catch {
+    // Git not available or no tags
   }
 
   return 'dev';
@@ -40,27 +43,27 @@ export default defineConfig({
   plugins: [
     react(),
     viteSingleFile({
-      removeViteModuleLoader: true
-    })
+      removeViteModuleLoader: true,
+    }),
   ],
   define: {
-    __APP_VERSION__: JSON.stringify(getVersion())
+    __APP_VERSION__: JSON.stringify(getVersion()),
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src')
-    }
+      '@': path.resolve(__dirname, './src'),
+    },
   },
   css: {
     modules: {
       localsConvention: 'camelCase',
-      generateScopedName: '[name]__[local]___[hash:base64:5]'
+      generateScopedName: '[name]__[local]___[hash:base64:5]',
     },
     preprocessorOptions: {
       scss: {
-        additionalData: `@use "@/styles/variables.scss" as *;`
-      }
-    }
+        additionalData: `@use "@/styles/variables.scss" as *;`,
+      },
+    },
   },
   build: {
     target: 'es2020',
@@ -71,8 +74,8 @@ export default defineConfig({
     rollupOptions: {
       output: {
         inlineDynamicImports: true,
-        manualChunks: undefined
-      }
-    }
-  }
+        manualChunks: undefined,
+      },
+    },
+  },
 });

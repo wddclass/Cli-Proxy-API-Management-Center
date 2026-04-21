@@ -150,6 +150,113 @@ const shouldFallbackToAlternateApi = (statusCode: number, message: string): bool
   );
 };
 
+const shouldFallbackOnEmptyChatContent = (payload: unknown): boolean => {
+  if (!isRecord(payload)) return false;
+  const choices = payload.choices;
+  if (!Array.isArray(choices) || choices.length === 0) return false;
+
+  return choices.every((choice) => {
+    if (!isRecord(choice)) return true;
+    const message = choice.message;
+    if (!isRecord(message)) return true;
+    const content = message.content;
+    if (typeof content === 'string') {
+      return content.trim().length === 0;
+    }
+    if (Array.isArray(content)) {
+      return contentToText(content).trim().length === 0;
+    }
+    return content == null;
+  });
+};
+
+const parseSsePayloads = (bodyText: string): unknown[] => {
+  const events = bodyText
+    .split(/\n\s*\n/g)
+    .map((block) => block.trim())
+    .filter(Boolean);
+
+  const payloads: unknown[] = [];
+  events.forEach((event) => {
+    const dataLines = event
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith('data:'))
+      .map((line) => line.slice(5).trim());
+
+    if (!dataLines.length) return;
+    const data = dataLines.join('\n').trim();
+    if (!data || data === '[DONE]') return;
+
+    try {
+      payloads.push(JSON.parse(data));
+    } catch {
+      payloads.push(data);
+    }
+  });
+
+  return payloads;
+};
+
+const extractStreamResponseText = (bodyText: string): string => {
+  const payloads = parseSsePayloads(bodyText);
+  const chunks: string[] = [];
+  let hasDeltaChunks = false;
+
+  payloads.forEach((payload) => {
+    if (typeof payload === 'string') {
+      if (payload.trim()) chunks.push(payload.trim());
+      return;
+    }
+    if (!isRecord(payload)) return;
+
+    if (typeof payload.delta === 'string' && payload.delta.trim()) {
+      chunks.push(payload.delta);
+    }
+
+    const choices = payload.choices;
+    if (Array.isArray(choices)) {
+      choices.forEach((choice) => {
+        if (!isRecord(choice)) return;
+        const delta = choice.delta;
+        if (isRecord(delta)) {
+          const text = contentToText(delta.content);
+          if (text) {
+            chunks.push(text);
+            hasDeltaChunks = true;
+            return;
+          }
+        }
+
+        const message = choice.message;
+        if (isRecord(message)) {
+          const text = contentToText(message.content);
+          if (text && !hasDeltaChunks && chunks.length === 0) {
+            chunks.push(text);
+          }
+        }
+      });
+      return;
+    }
+
+    const response = payload.response;
+    if (isRecord(response)) {
+      const text = extractResponseText(response);
+      if (text && !hasDeltaChunks && chunks.length === 0) {
+        chunks.push(text);
+      }
+      return;
+    }
+
+    const text = extractResponseText(payload);
+    if (text && !hasDeltaChunks && chunks.length === 0) {
+      chunks.push(text);
+    }
+  });
+
+  return chunks.join('').trim();
+};
+
 export function CodexTestModal({ open, config, onClose }: CodexTestModalProps) {
   const { t } = useTranslation();
   const { showNotification } = useNotificationStore();
@@ -325,7 +432,8 @@ export function CodexTestModal({ open, config, onClose }: CodexTestModalProps) {
   const sendChatCompletionsRequest = async (
     endpoint: string,
     headers: Record<string, string>,
-    modelName: string
+    modelName: string,
+    stream = false
   ) =>
     apiCallApi.request(
       {
@@ -335,7 +443,7 @@ export function CodexTestModal({ open, config, onClose }: CodexTestModalProps) {
         data: JSON.stringify({
           model: modelName,
           messages: [{ role: 'user', content: TEST_PROMPT }],
-          stream: false,
+          stream,
           max_tokens: 128,
         }),
       },
@@ -345,7 +453,8 @@ export function CodexTestModal({ open, config, onClose }: CodexTestModalProps) {
   const sendResponsesRequest = async (
     endpoint: string,
     headers: Record<string, string>,
-    modelName: string
+    modelName: string,
+    stream = false
   ) =>
     apiCallApi.request(
       {
@@ -355,6 +464,7 @@ export function CodexTestModal({ open, config, onClose }: CodexTestModalProps) {
         data: JSON.stringify({
           model: modelName,
           input: TEST_PROMPT,
+          stream,
           max_output_tokens: 128,
         }),
       },
@@ -412,6 +522,7 @@ export function CodexTestModal({ open, config, onClose }: CodexTestModalProps) {
 
       let successResult: Awaited<ReturnType<typeof apiCallApi.request>> | null = null;
       let successMode: TestApiMode | null = null;
+      let successText = '';
       let previousErrorMessage = '';
 
       for (let index = 0; index < requestSequence.length; index += 1) {
@@ -422,8 +533,72 @@ export function CodexTestModal({ open, config, onClose }: CodexTestModalProps) {
             : await sendResponsesRequest(item.endpoint, headers, currentTestModel);
 
         if (result.statusCode >= 200 && result.statusCode < 300) {
+          if (
+            item.mode === 'chat' &&
+            shouldFallbackOnEmptyChatContent(result.body) &&
+            !extractResponseText(result.body)
+          ) {
+            const streamHeaders: Record<string, string> = {
+              ...headers,
+              Accept: 'text/event-stream',
+            };
+            const streamResult = await sendChatCompletionsRequest(
+              item.endpoint,
+              streamHeaders,
+              currentTestModel,
+              true
+            );
+            const streamText = extractStreamResponseText(streamResult.bodyText || '');
+            if (streamResult.statusCode >= 200 && streamResult.statusCode < 300 && streamText) {
+              successResult = {
+                ...streamResult,
+                body: streamResult.body ?? result.body,
+              };
+              successMode = item.mode;
+              successText = streamText;
+              setUsedFallback(index > 0);
+              break;
+            }
+            previousErrorMessage = 'Chat completions returned empty content';
+            if (index < requestSequence.length - 1) {
+              continue;
+            }
+          }
+
+          if (
+            item.mode === 'responses' &&
+            !extractResponseText(result.body) &&
+            index < requestSequence.length
+          ) {
+            const streamHeaders: Record<string, string> = {
+              ...headers,
+              Accept: 'text/event-stream',
+            };
+            const streamResult = await sendResponsesRequest(
+              item.endpoint,
+              streamHeaders,
+              currentTestModel,
+              true
+            );
+            const streamText = extractStreamResponseText(streamResult.bodyText || '');
+            if (streamResult.statusCode >= 200 && streamResult.statusCode < 300 && streamText) {
+              successResult = {
+                ...streamResult,
+                body: streamResult.body ?? result.body,
+              };
+              successMode = item.mode;
+              successText = streamText;
+              setUsedFallback(index > 0);
+              break;
+            }
+            if (index < requestSequence.length - 1) {
+              previousErrorMessage = 'Responses API returned empty content';
+              continue;
+            }
+          }
           successResult = result;
           successMode = item.mode;
+          successText = extractResponseText(result.body);
           setUsedFallback(index > 0);
           break;
         }
@@ -441,7 +616,7 @@ export function CodexTestModal({ open, config, onClose }: CodexTestModalProps) {
         throw new Error(previousErrorMessage || t('notification.update_failed'));
       }
 
-      const content = extractResponseText(successResult.body);
+      const content = successText || extractResponseText(successResult.body);
       const normalizedBody =
         typeof successResult.body === 'string'
           ? (() => {
@@ -635,17 +810,7 @@ export function CodexTestModal({ open, config, onClose }: CodexTestModalProps) {
               })}
             </div>
             <div className={styles.codexTestConsoleLineMuted}>
-              {t('ai_providers.codex_test_request_url', {
-                url: displayedTestEndpoint || t('common.not_set'),
-              })}
-            </div>
-            <div className={styles.codexTestConsoleLineMuted}>
               {t('ai_providers.codex_test_prompt_label', { prompt: TEST_PROMPT })}
-            </div>
-            <div className={styles.codexTestConsoleLineMuted}>
-              {t('ai_providers.codex_test_strategy', {
-                strategy: `${testEndpoint} -> ${responsesEndpoint}`,
-              })}
             </div>
 
             {loadingModels ? (
@@ -676,14 +841,15 @@ export function CodexTestModal({ open, config, onClose }: CodexTestModalProps) {
                   {t('ai_providers.codex_test_success')}
                 </div>
                 <div className={styles.codexTestConsoleLineMuted}>
-                  {t('ai_providers.codex_test_mode_used', {
-                    mode:
-                      lastUsedApiMode === 'responses' ? '/v1/responses' : '/v1/chat/completions',
+                  {t('ai_providers.codex_test_request_url', {
+                    url: displayedTestEndpoint || t('common.not_set'),
                   })}
                 </div>
                 {usedFallback ? (
                   <div className={styles.codexTestConsoleLineInfo}>
-                    {t('ai_providers.codex_test_fallback_used')}
+                    {t('ai_providers.codex_test_fallback_used', {
+                      url: displayedTestEndpoint || t('common.not_set'),
+                    })}
                   </div>
                 ) : null}
                 <div className={styles.codexTestResultBlock}>

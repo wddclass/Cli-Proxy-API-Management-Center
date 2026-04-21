@@ -9,18 +9,24 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import iconCodex from '@/assets/icons/codex.svg';
 import type { ProviderKeyConfig } from '@/types';
 import { maskApiKey } from '@/utils/format';
-import { buildCandidateUsageSourceIds, calculateStatusBarData, type KeyStats } from '@/utils/usage';
-import { collectUsageDetailsForCandidates, type UsageDetailsBySource } from '@/utils/usageIndex';
+import { calculateStatusBarData, type KeyStats } from '@/utils/usage';
+import { type UsageDetailsByAuthIndex, type UsageDetailsBySource } from '@/utils/usageIndex';
 import styles from '@/pages/AiProvidersPage.module.scss';
 import { ProviderStatusBar } from '../ProviderStatusBar';
 import { useSectionCollapsed } from '../hooks/useSectionCollapsed';
-import { getStatsBySource, hasDisableAllModelsRule } from '../utils';
+import {
+  collectUsageDetailsForIdentity,
+  getProviderConfigKey,
+  getStatsForIdentity,
+  hasDisableAllModelsRule,
+} from '../utils';
 import { CodexTestModal } from './CodexTestModal';
 
 interface CodexSectionProps {
   configs: ProviderKeyConfig[];
   keyStats: KeyStats;
   usageDetailsBySource: UsageDetailsBySource;
+  usageDetailsByAuthIndex: UsageDetailsByAuthIndex;
   loading: boolean;
   disableControls: boolean;
   isSwitching: boolean;
@@ -49,6 +55,7 @@ export function CodexSection({
   configs,
   keyStats,
   usageDetailsBySource,
+  usageDetailsByAuthIndex,
   loading,
   disableControls,
   isSwitching,
@@ -71,25 +78,30 @@ export function CodexSection({
   const statusBarCache = useMemo(() => {
     const cache = new Map<string, ReturnType<typeof calculateStatusBarData>>();
 
-    configs.forEach((config) => {
+    configs.forEach((config, index) => {
       if (!config.apiKey) return;
-      const candidates = buildCandidateUsageSourceIds({
-        apiKey: config.apiKey,
-        prefix: config.prefix,
-      });
-      if (!candidates.length) return;
+      const configKey = getProviderConfigKey(config, index);
       cache.set(
-        config.apiKey,
-        calculateStatusBarData(collectUsageDetailsForCandidates(usageDetailsBySource, candidates))
+        configKey,
+        calculateStatusBarData(
+          collectUsageDetailsForIdentity(
+            { authIndex: config.authIndex, apiKey: config.apiKey, prefix: config.prefix },
+            usageDetailsBySource,
+            usageDetailsByAuthIndex
+          )
+        )
       );
     });
 
     return cache;
-  }, [configs, usageDetailsBySource]);
+  }, [configs, usageDetailsByAuthIndex, usageDetailsBySource]);
 
   const sortedItems = useMemo<CodexViewItem[]>(() => {
     const items = configs.map((config, originalIndex) => {
-      const stats = getStatsBySource(config.apiKey, keyStats, config.prefix);
+      const stats = getStatsForIdentity(
+        { authIndex: config.authIndex, apiKey: config.apiKey, prefix: config.prefix },
+        keyStats
+      );
       const total = stats.success + stats.failure;
       return {
         config,
@@ -244,14 +256,15 @@ export function CodexSection({
                       const configDisabled = hasDisableAllModelsRule(config.excludedModels);
                       const excludedModels = config.excludedModels ?? [];
                       const statusData =
-                        statusBarCache.get(config.apiKey) || calculateStatusBarData([]);
+                        statusBarCache.get(getProviderConfigKey(config, item.originalIndex)) ||
+                        calculateStatusBarData([]);
                       const requestTotal = item.success + item.failure;
                       const successRateText =
                         requestTotal > 0 ? `${(item.successRate * 100).toFixed(1)}%` : '--';
 
                       return (
                         <tr
-                          key={`${config.apiKey}:${item.originalIndex}`}
+                          key={getProviderConfigKey(config, item.originalIndex)}
                           className={configDisabled ? styles.codexTableRowDisabled : ''}
                         >
                           <td>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -20,7 +20,7 @@ import {
   getStatsForIdentity,
   hasDisableAllModelsRule,
 } from '../utils';
-import { CodexTestModal } from './CodexTestModal';
+import { CodexTestLauncher } from './CodexTestLauncher';
 
 interface CodexSectionProps {
   configs: ProviderKeyConfig[];
@@ -65,7 +65,6 @@ export function CodexSection({
   onToggle,
 }: CodexSectionProps) {
   const { t } = useTranslation();
-  const [testingConfig, setTestingConfig] = useState<ProviderKeyConfig | null>(null);
   const [storedSortMode, setStoredSortMode] = useLocalStorage<string>(
     CODEX_SORT_STORAGE_KEY,
     'added'
@@ -366,14 +365,7 @@ export function CodexSection({
                                 />
                               </div>
                               <div className={styles.tableActionButtons}>
-                                <Button
-                                  variant="secondary"
-                                  size="sm"
-                                  onClick={() => setTestingConfig(config)}
-                                  disabled={actionsDisabled}
-                                >
-                                  {t('ai_providers.codex_test_action')}
-                                </Button>
+                                <CodexTestLauncher config={config} disabled={actionsDisabled} />
                                 <Button
                                   variant="secondary"
                                   size="sm"
@@ -403,11 +395,6 @@ export function CodexSection({
           </div>
         </div>
       </Card>
-      <CodexTestModal
-        open={Boolean(testingConfig)}
-        config={testingConfig}
-        onClose={() => setTestingConfig(null)}
-      />
     </>
   );
 }
